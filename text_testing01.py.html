@@ -1,0 +1,294 @@
+
+# coding: utf-8
+
+# In[2]:
+
+# import required modules
+import requests
+from bs4 import BeautifulSoup
+
+
+# In[3]:
+
+# create a variable with the url and use requests to get the contents
+url = 'http://www.eastoftheweb.com/short-stories/UBooks/RedHead.shtml'
+r = requests.get(url)
+# get the text of the contents and convert the html content into a beautiful soup object
+html_content = r.text
+soup = BeautifulSoup(html_content)
+
+
+# In[4]:
+
+# View the title tag of the soup object
+soup.title
+
+
+# In[5]:
+
+# View the name of the title
+soup.title.name
+
+
+# In[6]:
+
+# View the string within the title tag
+soup.title.string
+
+
+# In[7]:
+
+# view the 1st paragraph tag of the soup
+soup.p
+
+
+# In[8]:
+
+soup.title.parent.name
+
+
+# In[9]:
+
+soup.a 
+#soup.find_all('a')
+
+
+# In[10]:
+
+soup.get_text()
+
+
+# In[11]:
+
+soup.p.string
+
+
+# In[12]:
+
+print(soup.prettify())
+
+
+# In[13]:
+
+# web scraping for all <p> for the story
+dftext=soup.find_all('p') 
+# print the plain text of all four resources and then copy and paste it into a new file named redhead.txt
+for tag in dftext:  
+    print tag.text
+
+
+# In[14]:
+
+# Load regex package in order to do Regular Expressions for further programming 
+import re
+f = open('../untitled/redhead.txt', 'r')
+lines = f.read() 
+# use "(.*?)" to find "dialog" only 
+match = re.findall('"(.*?)"', lines)
+print match
+
+
+# In[107]:
+
+# the above is based on http://chrisalbon.com/regex/match_text_between_html_tags.html
+
+
+# In[60]:
+
+# import required modules which are pandas and numpy
+import numpy as np
+import pandas as pd
+
+
+# In[61]:
+
+#need use len() to know how many dialogs are there in order to create a series of pandas 
+#then use list(range()) to have an index of the series
+a = list(range(len(match))) 
+s2 = pd.Series(match, index=a, name='text')
+
+
+# In[62]:
+
+s1 = pd.Series(np.random.randint(2, size=189), index=a, name='rand')
+
+
+# In[109]:
+
+#Combining two Series into a DataFrame in pandas
+df = pd.concat([s1, s2], axis=1) 
+
+
+# In[110]:
+
+df
+
+
+# In[134]:
+
+import scipy as sp
+from sklearn.cross_validation import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
+
+
+# In[133]:
+
+from nltk.stem.snowball import SnowballStemmer
+from textblob import TextBlob, Word 
+
+
+# In[161]:
+
+# split the DataFrame - df into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(df.text, df.rand, test_size=0.4, random_state=1)
+
+
+# In[162]:
+
+# use CountVectorizer to create document-term matrices from X_train and X_test
+vect = CountVectorizer()
+train_dtm = vect.fit_transform(X_train)
+test_dtm = vect.transform(X_test)
+# rows are documents, columns are terms (aka "tokens" or "features")
+train_dtm.shape
+#113 rows because of original 189 rows *(1-0.4)
+
+
+# In[163]:
+
+# last 10 features (not orignial raw data)
+print vect.get_feature_names()[-10:] #columns transpose to vector, feautures become rows. So [-10:0]
+
+
+# In[164]:
+
+# show vectorizer options
+vect
+
+
+# In[165]:
+
+# include 1-grams and 2-grams ; smaller grams (1-grams) or bigger grams(5-grams) depends on what users/businesses use!
+vect = CountVectorizer(ngram_range=(1, 5)) 
+#like u'you are' means 2-grams; using 5-grams here in order to catch the more meaning for test result/accuracy
+train_dtm = vect.fit_transform(X_train)
+train_dtm.shape
+
+
+# In[166]:
+
+##### define a function that accepts a vectorizer and returns the accuracy #####
+def tokenize_test(vect):
+    train_dtm = vect.fit_transform(X_train)
+    print 'Features: ', train_dtm.shape[1]
+    test_dtm = vect.transform(X_test)
+    nb = MultinomialNB() # use Naive Bayes to predict the label
+    nb.fit(train_dtm, y_train)
+    y_pred_class = nb.predict(test_dtm)
+    print 'Accuracy: ', metrics.accuracy_score(y_test, y_pred_class)
+
+
+# In[167]:
+
+print 'Default: ngram_range=(1,1)'
+vect = CountVectorizer()
+tokenize_test(vect)
+#####
+print 'ngram_range=(1,2)' 
+#note that ngram_range=(1,2) is better 
+vect = CountVectorizer(ngram_range=(1, 2))
+tokenize_test(vect) 
+#####
+
+print 'ngram_range=(1,3)'
+vect = CountVectorizer(ngram_range=(1, 3))
+tokenize_test(vect) 
+print 'ngram_range=(1,4)'
+vect = CountVectorizer(ngram_range=(1, 4))
+tokenize_test(vect) 
+print 'ngram_range=(1,5)'
+vect = CountVectorizer(ngram_range=(1, 5))
+tokenize_test(vect) 
+print 'ngram_range=(2,5)' 
+vect = CountVectorizer(ngram_range=(2, 5))
+tokenize_test(vect) 
+print 'ngram_range=(3,5)'
+vect = CountVectorizer(ngram_range=(3, 5))
+tokenize_test(vect) 
+print 'ngram_range=(4,5)'
+vect = CountVectorizer(ngram_range=(4, 5))
+tokenize_test(vect) 
+
+
+# In[149]:
+
+#note that there is no ngram_range(a,b) when a > b, ie, ngram_range(4,3). Because it makes no sense. 
+#ValueError: empty vocabulary; perhaps the documents only contain stop word
+
+
+# In[150]:
+
+# define a function that accepts text and returns a list of lemmas
+def split_into_lemmas(text):
+    text = unicode(text, 'utf-8').lower()
+    words = TextBlob(text).words
+    return [word.lemmatize() for word in words]
+
+
+# In[151]:
+
+# use split_into_lemmas as the feature extraction function
+vect = CountVectorizer(analyzer=split_into_lemmas)
+tokenize_test(vect)
+
+
+# In[152]:
+
+# save it as a TextBlob object
+textdialogrow1 = TextBlob(df.text[1])
+
+
+# In[153]:
+
+textdialogrow1.sentiment.polarity
+# polarity ranges from -1 (most negative) to 1 (most positive)
+
+
+# In[154]:
+
+# import required modules
+from textblob import TextBlob, Word 
+
+
+# In[155]:
+
+# define a function that accepts text and returns the polarity
+# polarity ranges from -1 (most negative) to 1 (most positive)
+def detect_sentiment(text):
+    return TextBlob(text.decode('utf-8')).sentiment.polarity
+
+
+# In[156]:
+
+# create a new DataFrame column for sentiment
+df['sentiment'] = df.text.apply(detect_sentiment)
+
+
+# In[157]:
+
+df
+
+
+# In[158]:
+
+get_ipython().magic(u'matplotlib inline')
+df.boxplot(column='sentiment')
+
+
+# In[159]:
+
+df.boxplot(column='sentiment', by='rand')
+
